@@ -1,0 +1,118 @@
+---
+description: エラーハンドリングとユーザー体験ガイドライン
+---
+
+# エラーハンドリング実装ガイドライン
+
+## 主要エラーケースと対応
+
+### 1. ファイルアップロード関連
+```typescript
+// ファイルサイズ超過（2GB制限）
+if (file.size > 2 * 1024 * 1024 * 1024) {
+  return NextResponse.json(
+    { error: "ファイルサイズが2GBを超えています。動画を圧縮してください。" },
+    { status: 413 }
+  );
+}
+
+// 不正なMIMEタイプ
+if (!file.type.startsWith('video/')) {
+  return NextResponse.json(
+    { error: "動画ファイルをアップロードしてください。対応形式: MP4, MOV, AVI等" },
+    { status: 400 }
+  );
+}
+```
+
+### 2. Google AI Studio関連
+```typescript
+// Files APIエラー
+try {
+  const uploadResult = await fileManager.uploadFile(filePath, config);
+} catch (error) {
+  if (error.message.includes('quota')) {
+    return NextResponse.json(
+      { error: "アップロード容量制限に達しています。しばらく待ってから再試行してください。" },
+      { status: 429 }
+    );
+  }
+  // 48時間制限
+  if (error.message.includes('expired')) {
+    return NextResponse.json(
+      { error: "ファイルの保存期限が切れています。動画を再アップロードしてください。" },
+      { status: 410 }
+    );
+  }
+}
+
+// Gemini API エラー
+try {
+  const result = await model.generateContent([fileData, prompt]);
+} catch (error) {
+  return NextResponse.json(
+    { error: "動画の解析に失敗しました。動画形式や内容を確認して再試行してください。" },
+    { status: 502 }
+  );
+}
+```
+
+### 3. OpenRouter関連
+```typescript
+// OpenRouter APIエラー
+try {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', options);
+  if (!response.ok) {
+    throw new Error(`OpenRouter API error: ${response.status}`);
+  }
+} catch (error) {
+  return NextResponse.json(
+    { error: "プロンプト生成サービスでエラーが発生しました。再試行してください。" },
+    { status: 502 }
+  );
+}
+
+// JSON解析エラー
+try {
+  const final = JSON.parse(content);
+} catch (error) {
+  return NextResponse.json(
+    { 
+      error: "JSONプロンプトの生成に失敗しました。再試行してください。",
+      raw: content // デバッグ用
+    },
+    { status: 500 }
+  );
+}
+```
+
+## フロントエンドエラー表示
+
+### ユーザーフレンドリーなメッセージ
+```typescript
+const getErrorMessage = (error: string): string => {
+  if (error.includes('2GB')) return '動画ファイルが大きすぎます。圧縮してください。';
+  if (error.includes('動画ファイル')) return '動画形式のファイルを選択してください。';
+  if (error.includes('容量制限')) return 'サーバーが混雑しています。時間をおいて再試行してください。';
+  if (error.includes('期限切れ')) return 'ファイルを再アップロードしてください。';
+  return '処理中にエラーが発生しました。再試行してください。';
+};
+```
+
+### リトライ機能
+```typescript
+const [retryCount, setRetryCount] = useState(0);
+const MAX_RETRIES = 3;
+
+const handleRetry = () => {
+  if (retryCount < MAX_RETRIES) {
+    setRetryCount(prev => prev + 1);
+    processVideo();
+  }
+};
+```
+
+## ログ記録
+- エラー詳細は開発者向けログに記録
+- ユーザーには分かりやすいメッセージのみ表示
+- API制限やクォータ情報の監視

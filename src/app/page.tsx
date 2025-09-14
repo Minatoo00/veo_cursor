@@ -1,102 +1,192 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import FileUpload from '@/components/FileUpload';
+import ProcessStatus from '@/components/ProcessStatus';
+import ResultDisplay from '@/components/ResultDisplay';
+import ErrorDisplay from '@/components/ErrorDisplay';
+import { ProcessState, ProcessResult, UploadFileInfo, ApiErrorResponse } from '@/types';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [processState, setProcessState] = useState<ProcessState>('idle');
+  const [currentFile, setCurrentFile] = useState<UploadFileInfo | null>(null);
+  const [result, setResult] = useState<ProcessResult | null>(null);
+  const [error, setError] = useState<string | ApiErrorResponse | null>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  // ファイル選択時の処理
+  const handleFileSelect = async (fileInfo: UploadFileInfo) => {
+    setCurrentFile(fileInfo);
+    setResult(null);
+    setError(null);
+    await processVideo(fileInfo);
+  };
+
+  // 動画処理のメイン関数
+  const processVideo = async (fileInfo: UploadFileInfo) => {
+    const controller = new AbortController();
+    setAbortController(controller);
+
+    try {
+      // FormDataを作成
+      const formData = new FormData();
+      formData.append('file', fileInfo.file);
+
+      // 処理状態を順次更新
+      setProcessState('uploading');
+      
+      // APIリクエスト
+      const response = await fetch('/api/process', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errorData: ApiErrorResponse = await response.json();
+        throw new Error(JSON.stringify(errorData));
+      }
+
+      // 成功時の処理
+      const data: ProcessResult = await response.json();
+      setResult(data);
+      setProcessState('completed');
+
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          // キャンセルされた場合
+          setProcessState('idle');
+          setCurrentFile(null);
+          return;
+        }
+
+        // JSONエラーレスポンスの場合
+        try {
+          const errorData = JSON.parse(error.message);
+          setError(errorData);
+        } catch {
+          // 通常のエラーメッセージの場合
+          setError(error.message);
+        }
+      } else {
+        setError('予期しないエラーが発生しました');
+      }
+      
+      setProcessState('error');
+    } finally {
+      setAbortController(null);
+    }
+  };
+
+  // 処理をキャンセル
+  const handleCancel = () => {
+    if (abortController) {
+      abortController.abort();
+    }
+  };
+
+  // 再試行
+  const handleRetry = () => {
+    if (currentFile) {
+      setError(null);
+      processVideo(currentFile);
+    }
+  };
+
+  // リセット（最初からやり直し）
+  const handleReset = () => {
+    setProcessState('idle');
+    setCurrentFile(null);
+    setResult(null);
+    setError(null);
+    if (abortController) {
+      abortController.abort();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* ヘッダー */}
+      <header className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900">
+              🎬 Veo 3 プロンプト生成ツール
+            </h1>
+            <p className="mt-2 text-lg text-gray-600">
+              動画をアップロードして、Veo 3向けの最適化されたJSONプロンプトを生成
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {/* メインコンテンツ */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-8">
+          {/* ファイルアップロード */}
+          {processState === 'idle' && (
+            <FileUpload
+              onFileSelect={handleFileSelect}
+              disabled={processState !== 'idle'}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          )}
+
+          {/* 処理状態表示 */}
+          {processState !== 'idle' && processState !== 'error' && (
+            <ProcessStatus
+              state={processState}
+              fileName={currentFile?.name}
+              onCancel={handleCancel}
+            />
+          )}
+
+          {/* エラー表示 */}
+          {processState === 'error' && error && (
+            <ErrorDisplay
+              error={error}
+              onRetry={handleRetry}
+              onReset={handleReset}
+            />
+          )}
+
+          {/* 結果表示 */}
+          {processState === 'completed' && result && (
+            <ResultDisplay
+              result={result}
+              onReset={handleReset}
+            />
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* フッター */}
+      <footer className="bg-white border-t border-gray-200 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center text-sm text-gray-500 space-y-2">
+            <p>
+              このツールは <strong>Gemini 2.5 Flash</strong> で動画を解析し、
+              <strong>OpenRouter</strong> でVeo 3互換のJSONプロンプトを生成します。
+            </p>
+            <p>
+              対応形式: MP4, MOV, AVI, MKV, WebM（最大2GB）
+            </p>
+            <div className="flex justify-center space-x-6 mt-4">
+              <span className="flex items-center space-x-1">
+                <span>🤖</span>
+                <span>Gemini AI</span>
+              </span>
+              <span className="flex items-center space-x-1">
+                <span>⚡</span>
+                <span>OpenRouter</span>
+              </span>
+              <span className="flex items-center space-x-1">
+                <span>🎬</span>
+                <span>Veo 3 Compatible</span>
+              </span>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );
