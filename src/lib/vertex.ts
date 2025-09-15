@@ -38,7 +38,7 @@ export async function analyzeVideoWithVertex(gsUri: string, mimeType: string, mo
 
   const prompt = 'この動画を可能な限り詳細まで説明して。説明以外は何も出力しないでください';
 
-  const resp = await generativeModel.generateContent({
+  const result = await generativeModel.generateContent({
     contents: [{
       role: 'user',
       parts: [
@@ -48,9 +48,9 @@ export async function analyzeVideoWithVertex(gsUri: string, mimeType: string, mo
     }],
   });
 
-  // Vertexのレスポンスは text() メソッドでテキスト化できる
-  const rawText = (resp as any)?.response?.text?.();
-  const text = typeof rawText === 'string' ? rawText.trim() : undefined;
+  // Vertexのレスポンスは Promise になっているので await してから text() を呼ぶ
+  const response = await (result as any).response;
+  const text = typeof response?.text === 'function' ? String(response.text()).trim() : undefined;
   if (!text) throw new Error('Vertex Geminiから空の応答が返されました');
   return text;
 }
