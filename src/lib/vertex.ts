@@ -69,7 +69,17 @@ export async function analyzeVideoWithVertex(gsUri: string, mimeType: string, mo
     } catch {}
   }
 
-  if (!text || text.length === 0) throw new Error('Vertex Geminiから空の応答が返されました');
+  if (!text || text.length === 0) {
+    const finishReason = (response as any)?.candidates?.[0]?.finishReason;
+    const safetyBlocked = Boolean((response as any)?.promptFeedback?.safetyRatings?.some((r: any) => r?.blocked));
+    const details = {
+      finishReason: finishReason || 'unknown',
+      safetyBlocked,
+      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+    };
+    console.warn('Vertex empty response details:', details);
+    throw new Error(`Vertex Geminiから空の応答が返されました (finish=${details.finishReason}, safetyBlocked=${details.safetyBlocked}, location=${details.location})`);
+  }
   return text;
 }
 
