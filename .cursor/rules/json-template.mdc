@@ -1,0 +1,89 @@
+---
+description: Veo 3 JSONプロンプトテンプレート仕様
+---
+
+# Veo 3 JSONプロンプトテンプレート仕様
+
+## OpenRouterに渡すプロンプトテンプレート
+
+[REQUIREMENTS.md](mdc:REQUIREMENTS.md)の`<<BEGIN_TEMPLATE`〜`<<END_TEMPLATE`セクションに定義されているテンプレートを使用します。
+
+## 重要な実装ポイント
+
+### 1. テンプレート埋め込み
+- `===INPUT===`の直下に`geminiText`をそのまま挿入
+- テンプレート全体を`role: "user"`として送信
+
+### 2. OpenRouter設定
+```typescript
+{
+  model: process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet",
+  messages: [{ role: "user", content: templateWithInput }],
+  response_format: { type: "json_object" }, // 必須
+  temperature: 0.2
+}
+```
+
+### 3. 出力JSON構造
+```typescript
+interface VeoPrompt {
+  version: "t2v-universal-1.0";
+  engine_hint: "veo-3";
+  meta: {
+    title: string;
+    duration: "8s";
+    aspect_ratio: "16:9";
+    fps: 24;
+    language: "en";
+    notes: string[];
+  };
+  globals: {
+    style_tags: string[];
+    visual_mode: string;
+    safety: { allow_text: boolean; allow_logos: boolean };
+  };
+  subject: {
+    agents: any[];
+    key_elements: any[];
+    phenomena: any[];
+  };
+  scene: {
+    environment: string;
+    camera: {
+      shot_type: string;
+      position: string;
+      lens: string;
+      focus: string;
+      movement: string;
+      framing: string;
+    };
+    lighting: string;
+    mood: string;
+  };
+  action: {
+    overall: string;
+  };
+  audio: {
+    mode: string;
+    ambient: string[];
+    cues: any[];
+  };
+  timeline: {
+    events: any[];
+    notes: any[];
+  };
+  technical: {
+    constraints: {
+      allowed_exits: any[];
+      forbid_reentry_after_exit: any[];
+      priority_action_by: number;
+    };
+    negatives: string[];
+    quality_controls: string[];
+  };
+}
+```
+
+### 4. エラーハンドリング
+- JSON解析失敗時は`{ error: "Invalid JSON", raw: content }`を返却
+- コードブロック（```）が含まれる場合は除去処理を実装
