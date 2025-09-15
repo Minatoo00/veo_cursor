@@ -48,7 +48,9 @@ export async function analyzeVideoWithVertex(gsUri: string, mimeType: string, mo
     }],
   });
 
-  const text = resp.response?.text?.trim();
+  // Vertexのレスポンスは text() メソッドでテキスト化できる
+  const rawText = (resp as any)?.response?.text?.();
+  const text = typeof rawText === 'string' ? rawText.trim() : undefined;
   if (!text) throw new Error('Vertex Geminiから空の応答が返されました');
   return text;
 }
