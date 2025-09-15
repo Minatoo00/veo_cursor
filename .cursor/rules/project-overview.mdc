@@ -1,0 +1,35 @@
+---
+alwaysApply: true
+description: Veo 3動画プロンプト生成Webアプリの基本概要とアーキテクチャ
+---
+
+# Veo 3動画プロンプト生成Webアプリ プロジェクト概要
+
+このプロジェクトは、ユーザーが動画をアップロードしてVeo 3向けの最終完成プロンプト（JSON）を生成するWebアプリケーションです。
+
+## 技術スタック
+- **フレームワーク**: Next.js 15 (App Router) + TypeScript
+- **UI**: Tailwind CSS（最小構成）
+- **AI**: Google AI Studio（Gemini 2.5 Flash / 2.5 Pro）+ 新SDK（@google/genai）
+- **LLM整形**: OpenRouter Chat Completions API（response_formatでJSON強制）
+
+## 主要な処理フロー
+1. Files APIへ動画アップロード → `file_uri`取得
+2. Geminiへ動画説明要求 → 詳細テキスト取得
+3. テンプレートに埋め込み → OpenRouterでJSON生成
+4. 最終JSONプロンプトを返却
+
+## 環境変数
+- `GEMINI_API_KEY`: Google AI Studio APIキー
+- `OPENROUTER_API_KEY`: OpenRouter APIキー
+- `OPENROUTER_MODEL`: 使用モデル（任意）
+
+## 主要ファイル
+- [REQUIREMENTS.md](mdc:REQUIREMENTS.md): 詳細仕様書
+- APIエンドポイント: `/api/process` (POST)
+- フロントエンド: D&D/ファイル選択 → 結果表示
+
+## 受け入れ基準
+- 一般的なスマホ動画で有効なJSONを即時返却
+- 失敗時は具体的なエラーメッセージを表示
+- 2GB制限、48時間保存制限への対応

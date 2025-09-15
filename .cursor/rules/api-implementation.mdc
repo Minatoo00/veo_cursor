@@ -1,0 +1,51 @@
+---
+globs: src/app/api/**/*.ts,src/app/api/**/*.tsx
+description: API実装に関するガイドライン（/api/process エンドポイント）
+---
+
+# API実装ガイドライン
+
+## メインエンドポイント: `/api/process`
+- **メソッド**: POST
+- **Content-Type**: `multipart/form-data`
+- **パラメータ**: `file=video/*`
+
+## 処理フロー実装要件
+
+### 1. Files APIへのアップロード（必須）
+```typescript
+// 新SDK（@google/genai）を使用
+import { GoogleAIFileManager } from '@google/generative-ai/server';
+
+const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY!);
+const uploadResult = await fileManager.uploadFile(filePath, {
+  mimeType: file.mimetype,
+  displayName: file.originalname
+});
+// uploadResult.file.uri と uploadResult.file.mimeType を使用
+```
+
+### 2. Gemini問い合わせ
+- **モデル**: `"gemini-2.5-flash"`（重い場合は `"gemini-2.5-pro"`）
+- **プロンプト**: `"この動画を可能な限り詳細まで説明して。説明以外は何も出力しないでください"`
+- **レスポンス取得**: `const geminiText = response.response.text().trim()`
+
+### 3. OpenRouter JSON生成
+- **必須パラメータ**: `response_format: { "type": "json_object" }`
+- **温度設定**: `temperature: 0.2`
+- **テンプレート**: [REQUIREMENTS.md](mdc:REQUIREMENTS.md)の`<<BEGIN_TEMPLATE`〜`<<END_TEMPLATE`を使用
+
+### 4. エラーハンドリング
+- **ファイルサイズ**: 2GB制限
+- **保存期間**: 48時間制限
+- **MIME TYPE**: video/*のみ許可
+- **JSON解析失敗**: `{ error: "Invalid JSON", raw: content }`を返却
+
+### 5. レスポンス形式
+```typescript
+// 成功時
+{ final: ParsedJSON, gemini_text: string }
+
+// エラー時
+{ error: string, details?: any }
+```
