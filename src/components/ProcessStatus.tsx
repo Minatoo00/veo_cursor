@@ -28,7 +28,7 @@ export default function ProcessStatus({
       case 'uploading':
         return {
           message: 'ファイルをアップロード中...',
-          description: 'Google Files APIに動画をアップロードしています',
+          description: 'GCS に動画をアップロードしています',
           progress: 25,
           color: 'blue',
           showProgress: true
@@ -37,7 +37,7 @@ export default function ProcessStatus({
       case 'gemini':
         return {
           message: '動画を解析中...',
-          description: 'Gemini AIが動画の内容を詳細に分析しています',
+          description: 'Vertex AI（Gemini）が動画の内容を詳細に分析しています',
           progress: 50,
           color: 'blue',
           showProgress: true

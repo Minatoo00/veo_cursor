@@ -12,21 +12,20 @@ description: API実装に関するガイドライン（/api/process エンドポ
 
 ## 処理フロー実装要件
 
-### 1. Files APIへのアップロード（必須）
+### 1. GCSへのアップロード（必須）
 ```typescript
-// 新SDK（@google/genai）を使用
-import { GoogleAIFileManager } from '@google/generative-ai/server';
+import { Storage } from '@google-cloud/storage';
 
-const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY!);
-const uploadResult = await fileManager.uploadFile(filePath, {
-  mimeType: file.mimetype,
-  displayName: file.originalname
-});
-// uploadResult.file.uri と uploadResult.file.mimeType を使用
+const storage = new Storage(); // ADC
+const bucket = storage.bucket(process.env.GCS_BUCKET!);
+const dest = `uploads/${Date.now()}_${file.originalname}`;
+await bucket.file(dest).save(fileBuffer, { contentType: file.mimetype, resumable: false });
+// 以降は gs://<bucket>/<dest> を使用
 ```
 
-### 2. Gemini問い合わせ
-- **モデル**: `"gemini-2.5-flash"`（重い場合は `"gemini-2.5-pro"`）
+### 2. Vertex（Gemini）問い合わせ
+- **モデル**: `"gemini-2.5-flash"`（厳密なら `"gemini-2.5-pro"`）
+- **入力**: `fileData: { fileUri: "gs://...", mimeType: file.mimetype }`
 - **プロンプト**: `"この動画を可能な限り詳細まで説明して。説明以外は何も出力しないでください"`
 - **レスポンス取得**: `const geminiText = response.response.text().trim()`
 

@@ -4,7 +4,7 @@
 
 ## 特徴
 
-- 🎬 **動画解析**: Gemini 2.5 Flashで動画内容を詳細分析
+- 🎬 **動画解析**: Vertex AI（Gemini）で動画内容を詳細分析
 - ⚡ **プロンプト生成**: OpenRouterでVeo 3互換のJSONプロンプトを生成
 - 📱 **レスポンシブUI**: モバイルファーストのモダンなUI
 - 🚀 **ドラッグ&ドロップ**: 直感的なファイルアップロード
@@ -14,7 +14,7 @@
 
 - **フレームワーク**: Next.js 15 (App Router) + TypeScript
 - **UI**: Tailwind CSS
-- **AI**: Google AI Studio (Gemini 2.5 Flash/Pro) + 新SDK (@google/genai)
+- **AI**: Vertex AI（Gemini 2.5 Flash/Pro）
 - **LLM整形**: OpenRouter Chat Completions API
 
 ## セットアップ
@@ -30,14 +30,16 @@ npm install
 `.env.local` ファイルを作成し、以下の環境変数を設定してください：
 
 ```bash
-# Google AI Studio APIキー（必須）
-GEMINI_API_KEY=your_gemini_api_key_here
-
 # OpenRouter APIキー（必須）
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 
 # OpenRouterモデル（任意、デフォルトはanthropic/claude-3.5-sonnet）
 OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
+
+# GCP/Vertex/GCS（ADC認証前提）
+GOOGLE_CLOUD_PROJECT=
+GOOGLE_CLOUD_LOCATION=asia-northeast1
+GCS_BUCKET=
 ```
 
 #### APIキーの取得方法
@@ -72,8 +74,8 @@ npm run start
 
 1. **動画アップロード**: 対応形式（MP4, MOV, AVI, MKV, WebM）の動画をドラッグ&ドロップまたはファイル選択
 2. **自動処理**: 
-   - Files APIで動画をアップロード
-   - Geminiで動画内容を詳細分析
+   - GCSに動画をアップロード
+   - Vertex AI（Gemini）で動画内容を詳細分析
    - OpenRouterでVeo 3互換のJSONプロンプトを生成
 3. **結果取得**: 生成されたJSONプロンプトをコピーまたはダウンロード
 

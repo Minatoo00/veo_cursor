@@ -7,24 +7,27 @@ description: 環境設定とデプロイメント要件
 
 ## 必須環境変数
 ```bash
-# Google AI Studio APIキー（必須）
-GEMINI_API_KEY=your_gemini_api_key
-
 # OpenRouter APIキー（必須）
 OPENROUTER_API_KEY=your_openrouter_api_key
 
 # OpenRouterモデル（任意、デフォルトは推奨モデル）
 OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
+
+# GCP/Vertex/GCS（ADC認証前提）
+GOOGLE_CLOUD_PROJECT=
+GOOGLE_CLOUD_LOCATION=asia-northeast1
+GCS_BUCKET=
 ```
 
 ## 必須依存関係
 ```json
 {
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "next": "15.0.0",
-    "react": "^18.0.0",
-    "typescript": "^5.0.0"
+    "@google-cloud/vertexai": "^1",
+    "@google-cloud/storage": "^7",
+    "next": "15.x",
+    "react": "^18 || ^19",
+    "typescript": "^5"
   }
 }
 ```
@@ -33,21 +36,14 @@ OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
 ```typescript
 // next.config.ts
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['@google/generative-ai']
-  },
-  api: {
-    bodyParser: {
-      sizeLimit: '2gb' // 2GB制限対応
-    }
-  }
+  serverExternalPackages: ['@google/genai','@google-cloud/vertexai','@google-cloud/storage'],
+  api: { bodyParser: { sizeLimit: '2gb' } }
 }
 ```
 
 ## ファイル制限対応
 - **最大ファイルサイズ**: 2GB
-- **保存期間**: 48時間（Google Files API制限）
-- **プロジェクト合計**: 20GB制限
+- **保存期間**: 48時間（GCS/運用ポリシーに準拠）
 - **MIME TYPE**: `video/*`のみ許可
 
 ## セキュリティ考慮事項

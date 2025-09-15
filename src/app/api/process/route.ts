@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { processVideoWithGemini } from '@/lib/gemini';
+import { processVideoWithVertex } from '@/lib/vertex';
 import { generateJSONWithRetry } from '@/lib/openrouter';
 import { createPromptFromTemplate, parseOpenRouterResponse } from '@/lib/template';
 import { ProcessResult, ApiErrorResponse } from '@/types';
@@ -83,15 +83,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 3) Geminiで動画解析（File/Blobを直接）
+    // 3) Vertex(GCS)で動画解析（gs:// を渡す）
     let geminiText: string;
     try {
-      const geminiResult = await processVideoWithGemini(
-        inputFile,
-        fileType,
-        fileName
-      );
-      geminiText = geminiResult.text;
+      geminiText = await processVideoWithVertex(inputFile /*, 'gemini-2.5-flash' */);
     } catch (error) {
       return NextResponse.json(
         { 
