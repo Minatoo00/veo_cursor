@@ -48,10 +48,28 @@ export async function analyzeVideoWithVertex(gsUri: string, mimeType: string, mo
     }],
   });
 
-  // Vertexのレスポンスは Promise になっているので await してから text() を呼ぶ
+  // Vertexのレスポンスは Promise になっているので await してからテキスト抽出
   const response = await (result as any).response;
-  const text = typeof response?.text === 'function' ? String(response.text()).trim() : undefined;
-  if (!text) throw new Error('Vertex Geminiから空の応答が返されました');
+
+  // 1) 推奨: text() ヘルパー
+  let text: string | undefined;
+  if (typeof response?.text === 'function') {
+    const maybeText = response.text();
+    if (typeof maybeText === 'string') {
+      text = maybeText.trim();
+    }
+  }
+
+  // 2) フォールバック: candidates → parts[].text を結合
+  if (!text || text.length === 0) {
+    try {
+      const parts = (response?.candidates?.[0]?.content?.parts ?? []) as Array<{ text?: string }>;
+      const joined = parts.map(p => p?.text || '').join('\n').trim();
+      if (joined) text = joined;
+    } catch {}
+  }
+
+  if (!text || text.length === 0) throw new Error('Vertex Geminiから空の応答が返されました');
   return text;
 }
 
