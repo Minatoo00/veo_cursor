@@ -143,9 +143,19 @@ export default function ResultDisplay({ result, onReset }: ResultDisplayProps) {
       {/* Geminiテキスト（折りたたみ） */}
       {result.gemini_text && (
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <button
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={showGeminiText}
+            aria-controls="gemini-panel"
             onClick={() => setShowGeminiText(!showGeminiText)}
-            className="w-full px-6 py-4 text-left border-b border-gray-200 hover:bg-gray-50 transition-colors"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setShowGeminiText((v) => !v);
+              }
+            }}
+            className="w-full px-6 py-4 text-left border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">
@@ -179,9 +189,9 @@ export default function ResultDisplay({ result, onReset }: ResultDisplayProps) {
                 </svg>
               </div>
             </div>
-          </button>
+          </div>
           {showGeminiText && (
-            <div className="p-6">
+            <div id="gemini-panel" className="p-6">
               <div className="bg-gray-50 p-4 rounded-md border">
                 <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                   {result.gemini_text}
