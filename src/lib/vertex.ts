@@ -1,5 +1,7 @@
 import { VertexAI } from '@google-cloud/vertexai';
 import { Storage } from '@google-cloud/storage';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 
 function assertEnv(name: string): void {
   if (!process.env[name]) throw new Error(`${name} is required`);
@@ -16,12 +18,20 @@ export async function uploadLocalVideoToGCS(file: File): Promise<{ gsUri: string
   const storage = new Storage(); // ADC を利用
 
   const dest = `uploads/${Date.now()}_${sanitize(file.name || 'video')}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const destination = storage.bucket(bucketName).file(dest);
 
-  await storage.bucket(bucketName).file(dest).save(buffer, {
+  // Web ReadableStream (from File) → Node.js Readable
+  const webStream = file.stream();
+  const nodeStream = Readable.fromWeb(webStream as any);
+
+  // Resumable upload to avoid buffering large payloads in memory
+  const writeStream = destination.createWriteStream({
+    resumable: true,
     contentType: file.type || 'video/mp4',
-    resumable: false,
+    metadata: { contentType: file.type || 'video/mp4' },
   });
+
+  await pipeline(nodeStream, writeStream);
 
   return { gsUri: `gs://${bucketName}/${dest}`, mimeType: file.type || 'video/mp4' };
 }
@@ -88,5 +98,4 @@ export async function processVideoWithVertex(file: File, model?: string): Promis
   const { gsUri, mimeType } = await uploadLocalVideoToGCS(file);
   return analyzeVideoWithVertex(gsUri, mimeType, model);
 }
-
 
