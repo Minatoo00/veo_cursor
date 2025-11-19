@@ -32,25 +32,64 @@ export default function Home() {
       const formData = new FormData();
       formData.append('file', fileInfo.file);
 
-      // 処理状態を順次更新
+      // XMLHttpRequest でアップロード完了時に状態を進める
       setProcessState('uploading');
-      
-      // APIリクエスト
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        let advancedToOpenRouter = false;
+
+        const cleanup = () => {
+          controller.signal.removeEventListener('abort', onAbortSignal);
+        };
+
+        const onAbortSignal = () => {
+          xhr.abort();
+        };
+
+        controller.signal.addEventListener('abort', onAbortSignal);
+
+        xhr.open('POST', '/api/process');
+        xhr.responseType = 'json';
+
+        // アップロード完了 → Vertex フェーズに遷移
+        xhr.upload.onload = () => setProcessState('gemini');
+
+        // サーバーからレスポンスボディを受信し始めたら OpenRouter フェーズへ
+        xhr.onreadystatechange = () => {
+          if (!advancedToOpenRouter && xhr.readyState === XMLHttpRequest.LOADING) {
+            advancedToOpenRouter = true;
+            setProcessState('openrouter');
+          }
+        };
+
+        xhr.onload = () => {
+          cleanup();
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const data = xhr.response as ProcessResult;
+            setResult(data);
+            setProcessState('completed');
+            resolve();
+          } else {
+            const errorPayload = (xhr.response as ApiErrorResponse) ?? { error: 'サーバーエラーが発生しました' };
+            reject(new Error(JSON.stringify(errorPayload)));
+          }
+        };
+
+        xhr.onerror = () => {
+          cleanup();
+          reject(new Error('ネットワークエラーが発生しました'));
+        };
+
+        xhr.onabort = () => {
+          cleanup();
+          setProcessState('idle');
+          setCurrentFile(null);
+          resolve();
+        };
+
+        xhr.send(formData);
       });
-
-      if (!response.ok) {
-        const errorData: ApiErrorResponse = await response.json();
-        throw new Error(JSON.stringify(errorData));
-      }
-
-      // 成功時の処理
-      const data: ProcessResult = await response.json();
-      setResult(data);
-      setProcessState('completed');
 
     } catch (error) {
       if (error instanceof Error) {
